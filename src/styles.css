@@ -1,0 +1,19 @@
+.cwto-reply-all-button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0 6px;
+  opacity: 0.92;
+}
+
+.cwto-reply-all-button:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.cwto-reply-all-button.is-processing {
+  opacity: 0.55;
+  pointer-events: none;
+}

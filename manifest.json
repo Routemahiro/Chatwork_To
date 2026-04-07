@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Chatwork 全員に返信",
+  "version": "0.1.0",
+  "description": "Chatwork の投稿アクションに「全員に返信」を追加し、返信タグと宛先をまとめて入力します。",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.chatwork.com/*",
+        "https://kcw.chatwork.com/*"
+      ],
+      "js": [
+        "src/content.js"
+      ],
+      "css": [
+        "src/styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
