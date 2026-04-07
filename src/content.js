@@ -20,8 +20,6 @@
   let cachedSettings = {
     selfAccountId: ""
   };
-  let pendingScanRoots = new Set();
-  let scanScheduled = false;
 
   function normalizeText(value) {
     return (value || "").replace(/\s+/g, " ").trim();
@@ -71,10 +69,6 @@
         ".sc-1j80sy4-0"
       ].join(",")
     );
-  }
-
-  function isMessageRoot(element) {
-    return element instanceof Element && element.matches(MESSAGE_ROOT_SELECTOR);
   }
 
   function findActionContainer(messageRoot) {
@@ -642,53 +636,13 @@
     replyButton.insertAdjacentElement("beforebegin", replyAllButton);
   }
 
-  function flushPendingScans() {
-    scanScheduled = false;
-    const roots = Array.from(pendingScanRoots);
-    pendingScanRoots = new Set();
-
-    for (const root of roots) {
-      injectReplyAllButton(root);
-    }
-  }
-
-  function scheduleScan(root) {
-    if (!(root instanceof Element)) {
+  function handleMessageHover(event) {
+    const messageRoot = findMessageRoot(event.target);
+    if (!messageRoot || !(messageRoot instanceof Element) || !messageRoot.matches(MESSAGE_ROOT_SELECTOR)) {
       return;
     }
 
-    pendingScanRoots.add(root);
-    if (scanScheduled) {
-      return;
-    }
-
-    scanScheduled = true;
-    window.requestAnimationFrame(flushPendingScans);
-  }
-
-  function scheduleInitialScan() {
-    document.querySelectorAll(MESSAGE_ROOT_SELECTOR).forEach((messageRoot) => {
-      scheduleScan(messageRoot);
-    });
-  }
-
-  function scheduleScanForNode(node) {
-    if (!(node instanceof Element)) {
-      return;
-    }
-
-    if (isMessageRoot(node)) {
-      scheduleScan(node);
-    }
-
-    const ownMessageRoot = findMessageRoot(node);
-    if (ownMessageRoot) {
-      scheduleScan(ownMessageRoot);
-    }
-
-    node.querySelectorAll(MESSAGE_ROOT_SELECTOR).forEach((messageRoot) => {
-      scheduleScan(messageRoot);
-    });
+    injectReplyAllButton(messageRoot);
   }
 
   function startObservers() {
@@ -698,20 +652,7 @@
 
     observerStarted = true;
     loadSettings();
-    scheduleInitialScan();
-
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        mutation.addedNodes.forEach((node) => {
-          scheduleScanForNode(node);
-        });
-      }
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
+    document.addEventListener("mouseover", handleMessageHover, true);
 
     if (chrome.storage && chrome.storage.onChanged) {
       chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -726,7 +667,7 @@
     }
 
     window.addEventListener("beforeunload", () => {
-      observer.disconnect();
+      document.removeEventListener("mouseover", handleMessageHover, true);
     });
   }
 
