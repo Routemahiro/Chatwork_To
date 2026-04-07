@@ -7,9 +7,13 @@
   const BUTTON_SCAN_INTERVAL_MS = 800;
   const REPLY_SETTLE_TIMEOUT_MS = 2500;
   const REPLY_SETTLE_POLL_MS = 100;
+  const STORAGE_KEY_SELF_ACCOUNT_ID = "selfAccountId";
 
   let observerStarted = false;
   let periodicScanId = null;
+  let cachedSettings = {
+    selfAccountId: ""
+  };
 
   function normalizeText(value) {
     return (value || "").replace(/\s+/g, " ").trim();
@@ -25,6 +29,26 @@
 
   function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function normalizeAccountId(value) {
+    return String(value || "").replace(/\D+/g, "");
+  }
+
+  function loadSettings() {
+    return new Promise((resolve) => {
+      if (!chrome.storage || !chrome.storage.sync) {
+        resolve(cachedSettings);
+        return;
+      }
+
+      chrome.storage.sync.get({ [STORAGE_KEY_SELF_ACCOUNT_ID]: "" }, (result) => {
+        cachedSettings = {
+          selfAccountId: normalizeAccountId(result[STORAGE_KEY_SELF_ACCOUNT_ID])
+        };
+        resolve(cachedSettings);
+      });
+    });
   }
 
   function findMessageRoot(element) {
@@ -439,9 +463,10 @@
     return candidates;
   }
 
-  function dedupeRecipients(candidates, currentUser, author) {
+  function dedupeRecipients(candidates, currentUser, author, settings) {
     const recipientMap = new Map();
-    const currentUserId = currentUser && currentUser.accountId;
+    const configuredSelfAccountId = normalizeAccountId(settings && settings.selfAccountId);
+    const currentUserId = configuredSelfAccountId || (currentUser && currentUser.accountId);
     const currentUserName = currentUser && normalizeText(currentUser.name);
 
     function shouldExclude(candidate) {
@@ -519,6 +544,7 @@
     button.classList.add(PROCESSING_CLASS);
 
     try {
+      const settings = await loadSettings();
       const previousValue = getComposerValue(composer);
       replyButton.click();
       const currentValue = await waitForReplyInsertion(composer, previousValue);
@@ -526,7 +552,7 @@
 
       const currentUser = inferCurrentUser();
       const author = extractMessageAuthor(messageRoot);
-      const recipients = dedupeRecipients(collectMentionCandidates(messageRoot), currentUser, author);
+      const recipients = dedupeRecipients(collectMentionCandidates(messageRoot), currentUser, author, settings);
       const recipientsText = buildRecipientLines(recipients);
       const nextValue = composeReplyAllText(replySnippet, recipientsText, previousValue);
 
@@ -579,6 +605,7 @@
     }
 
     observerStarted = true;
+    loadSettings();
     injectReplyAllButtons();
 
     const observer = new MutationObserver(() => {
@@ -591,6 +618,18 @@
     });
 
     periodicScanId = window.setInterval(injectReplyAllButtons, BUTTON_SCAN_INTERVAL_MS);
+    if (chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== "sync" || !changes[STORAGE_KEY_SELF_ACCOUNT_ID]) {
+          return;
+        }
+
+        cachedSettings.selfAccountId = normalizeAccountId(
+          changes[STORAGE_KEY_SELF_ACCOUNT_ID].newValue
+        );
+      });
+    }
+
     window.addEventListener("beforeunload", () => {
       if (periodicScanId !== null) {
         window.clearInterval(periodicScanId);
