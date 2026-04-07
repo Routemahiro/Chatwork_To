@@ -15,6 +15,14 @@
     return (value || "").replace(/\s+/g, " ").trim();
   }
 
+  function trimPreservingLines(value) {
+    return (value || "")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join("\n");
+  }
+
   function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
@@ -158,15 +166,27 @@
     return currentValue;
   }
 
-  function parseAccountId(rawValue) {
+  function parseAccountId(rawValue, attributeName) {
     if (!rawValue) {
       return null;
     }
 
     const value = String(rawValue);
-    const direct = value.match(/^\d+$/);
-    if (direct) {
-      return direct[0];
+    const isStrictNumericAttribute =
+      attributeName &&
+      [
+        "data-aid",
+        "data-account-id",
+        "data-user-id",
+        "data-member-id",
+        "data-chatwork-id"
+      ].includes(attributeName);
+
+    if (isStrictNumericAttribute) {
+      const direct = value.match(/^\d+$/);
+      if (direct) {
+        return direct[0];
+      }
     }
 
     const aidMatch = value.match(/aid(?:=|\/|:)(\d{4,})/i);
@@ -174,13 +194,14 @@
       return aidMatch[1];
     }
 
-    const chatworkMatch = value.match(/(?:users|members|account|contacts)\/(\d{4,})/i);
+    const chatworkMatch = value.match(
+      /(?:users|members|account|contacts|contact)\/(\d{4,})/i
+    );
     if (chatworkMatch) {
       return chatworkMatch[1];
     }
 
-    const trailingDigits = value.match(/(\d{4,})/);
-    return trailingDigits ? trailingDigits[1] : null;
+    return null;
   }
 
   function extractAccountIdFromElement(element) {
@@ -201,13 +222,116 @@
 
     for (const attribute of candidateAttributes) {
       const value = element.getAttribute(attribute);
-      const accountId = parseAccountId(value);
+      const accountId = parseAccountId(value, attribute);
       if (accountId) {
         return accountId;
       }
     }
 
     return null;
+  }
+
+  function isLikelyUrl(value) {
+    return /^https?:\/\//i.test(value) || /^www\./i.test(value);
+  }
+
+  function isLikelyToBadge(element) {
+    if (!(element instanceof HTMLElement)) {
+      return false;
+    }
+
+    const text = normalizeText(element.textContent);
+    if (text !== "TO") {
+      return false;
+    }
+
+    const className = typeof element.className === "string" ? element.className : "";
+    return /to/i.test(className) || text === "TO";
+  }
+
+  function isLikelyRecipientName(value) {
+    const text = normalizeText(value);
+    if (!text || text === "TO") {
+      return false;
+    }
+
+    if (isLikelyUrl(text)) {
+      return false;
+    }
+
+    if (/^\d+$/.test(text)) {
+      return false;
+    }
+
+    if (/^(返信|リアクション|引用|ブックマーク|タスク|リンク)$/.test(text)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function findRecipientContainerFromBadge(badge, messageRoot) {
+    let current = badge.parentElement;
+
+    while (current && current !== messageRoot) {
+      const text = normalizeText(current.textContent);
+      const withoutBadge = normalizeText(text.replace(/\bTO\b/g, ""));
+
+      if (
+        withoutBadge &&
+        !isLikelyUrl(withoutBadge) &&
+        current.querySelectorAll("a, button, span, div").length <= 12
+      ) {
+        return current;
+      }
+
+      current = current.parentElement;
+    }
+
+    return badge.parentElement;
+  }
+
+  function collectRecipientsFromToBadges(messageRoot) {
+    const badgeCandidates = Array.from(
+      messageRoot.querySelectorAll("span, div, button, a, strong, b")
+    ).filter(isLikelyToBadge);
+
+    const recipients = [];
+    const visitedContainers = new Set();
+
+    for (const badge of badgeCandidates) {
+      const container = findRecipientContainerFromBadge(badge, messageRoot);
+      if (!container || visitedContainers.has(container)) {
+        continue;
+      }
+      visitedContainers.add(container);
+
+      const candidateElements = Array.from(
+        container.querySelectorAll("[data-aid], [data-account-id], a, button, span")
+      );
+
+      for (const element of candidateElements) {
+        if (element === badge || badge.contains(element)) {
+          continue;
+        }
+
+        const name = normalizeText(
+          element.getAttribute("title") ||
+            element.getAttribute("aria-label") ||
+            element.textContent
+        );
+        const accountId = extractAccountIdFromElement(element);
+
+        if (!accountId || !isLikelyRecipientName(name)) {
+          continue;
+        }
+
+        recipients.push({ accountId, name });
+        break;
+      }
+    }
+
+    return recipients;
   }
 
   function extractMessageAuthor(messageRoot) {
@@ -269,45 +393,7 @@
   }
 
   function collectMentionCandidates(messageRoot) {
-    const candidates = [];
-    const seenNodes = new Set();
-    const selectors = [
-      "[data-aid]",
-      "[data-account-id]",
-      "a[href*='aid=']",
-      "a[href*='/users/']",
-      "a[href*='/members/']",
-      "span[title*='さん']",
-      "span[title]",
-      "a[title]"
-    ];
-
-    for (const selector of selectors) {
-      const elements = messageRoot.querySelectorAll(selector);
-      for (const element of elements) {
-        if (seenNodes.has(element)) {
-          continue;
-        }
-        seenNodes.add(element);
-
-        const accountId = extractAccountIdFromElement(element);
-        const name = normalizeText(
-          element.getAttribute("title") ||
-            element.getAttribute("aria-label") ||
-            element.textContent
-        );
-
-        if (!accountId && !name) {
-          continue;
-        }
-
-        candidates.push({
-          accountId,
-          name
-        });
-      }
-    }
-
+    const candidates = collectRecipientsFromToBadges(messageRoot);
     const bodyText = normalizeText(messageRoot.textContent);
     const toTagPattern = /\[To:(\d+)\]([^\[\]\n]+)/g;
     let match = null;
@@ -376,7 +462,7 @@
   }
 
   function composeReplyAllText(replySnippet, recipientsText, previousValue) {
-    const blocks = [normalizeText(replySnippet), recipientsText, previousValue];
+    const blocks = [trimPreservingLines(replySnippet), recipientsText, previousValue];
     return blocks.filter(Boolean).join("\n");
   }
 
