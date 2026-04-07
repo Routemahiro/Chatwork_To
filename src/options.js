@@ -2,6 +2,7 @@
   "use strict";
 
   const STORAGE_KEY = "selfAccountId";
+  const DEFAULT_ACCOUNT_ID = "807150";
 
   function normalizeAccountId(value) {
     return String(value || "").replace(/\D+/g, "");
@@ -23,7 +24,7 @@
   }
 
   function loadSettings() {
-    chrome.storage.sync.get({ [STORAGE_KEY]: "" }, (result) => {
+    chrome.storage.sync.get({ [STORAGE_KEY]: DEFAULT_ACCOUNT_ID }, (result) => {
       const { input } = getElements();
       if (!input) {
         return;
