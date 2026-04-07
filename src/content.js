@@ -270,65 +270,94 @@
     return true;
   }
 
-  function findRecipientContainerFromBadge(badge, messageRoot) {
-    let current = badge.parentElement;
+  function extractFirstMeaningfulLine(value) {
+    const lines = String(value || "")
+      .split(/\r?\n/)
+      .map((line) => normalizeText(line))
+      .filter(Boolean);
 
-    while (current && current !== messageRoot) {
-      const text = normalizeText(current.textContent);
-      const withoutBadge = normalizeText(text.replace(/\bTO\b/g, ""));
+    return lines[0] || "";
+  }
 
-      if (
-        withoutBadge &&
-        !isLikelyUrl(withoutBadge) &&
-        current.querySelectorAll("a, button, span, div").length <= 12
-      ) {
-        return current;
+  function readRecipientNameFromSiblings(tagElement) {
+    let current = tagElement.nextSibling;
+
+    while (current) {
+      if (current.nodeType === Node.TEXT_NODE) {
+        const text = extractFirstMeaningfulLine(current.textContent || "");
+        if (isLikelyRecipientName(text)) {
+          return text;
+        }
       }
 
-      current = current.parentElement;
+      if (current.nodeType === Node.ELEMENT_NODE) {
+        const element = current;
+
+        if (
+          element instanceof HTMLElement &&
+          element.hasAttribute("data-cwtag") &&
+          /^\[(?:To|rp)\b/i.test(element.getAttribute("data-cwtag") || "")
+        ) {
+          return "";
+        }
+
+        const text = extractFirstMeaningfulLine(element.textContent || "");
+        if (isLikelyRecipientName(text)) {
+          return text;
+        }
+      }
+
+      current = current.nextSibling;
     }
 
-    return badge.parentElement;
+    return "";
+  }
+
+  function collectRecipientsFromChatworkTags(messageRoot) {
+    const tagElements = messageRoot.querySelectorAll("[data-cwtag^='[To:']");
+    const recipients = [];
+    for (const tagElement of tagElements) {
+      const cwtag = tagElement.getAttribute("data-cwtag") || "";
+      const accountId = parseAccountId(cwtag);
+      const embeddedAccountId =
+        accountId || extractAccountIdFromElement(tagElement.querySelector("[data-aid], [data-account-id], button, img"));
+      const name = readRecipientNameFromSiblings(tagElement);
+
+      if (!embeddedAccountId || !isLikelyRecipientName(name)) {
+        continue;
+      }
+
+      recipients.push({
+        accountId: embeddedAccountId,
+        name
+      });
+    }
+
+    return recipients;
   }
 
   function collectRecipientsFromToBadges(messageRoot) {
     const badgeCandidates = Array.from(
-      messageRoot.querySelectorAll("span, div, button, a, strong, b")
+      messageRoot.querySelectorAll(".chatTimeLineTo, span, div, button, a, strong, b")
     ).filter(isLikelyToBadge);
 
     const recipients = [];
-    const visitedContainers = new Set();
-
     for (const badge of badgeCandidates) {
-      const container = findRecipientContainerFromBadge(badge, messageRoot);
-      if (!container || visitedContainers.has(container)) {
+      const tagContainer = badge.closest("[data-cwtag^='[To:']") || badge.parentElement;
+      if (!tagContainer) {
         continue;
       }
-      visitedContainers.add(container);
 
-      const candidateElements = Array.from(
-        container.querySelectorAll("[data-aid], [data-account-id], a, button, span")
-      );
+      const accountId =
+        parseAccountId(tagContainer.getAttribute("data-cwtag") || "") ||
+        extractAccountIdFromElement(tagContainer.querySelector("[data-aid], [data-account-id], button, img"));
+      const name = readRecipientNameFromSiblings(tagContainer);
 
-      for (const element of candidateElements) {
-        if (element === badge || badge.contains(element)) {
-          continue;
-        }
-
-        const name = normalizeText(
-          element.getAttribute("title") ||
-            element.getAttribute("aria-label") ||
-            element.textContent
-        );
-        const accountId = extractAccountIdFromElement(element);
-
-        if (!accountId || !isLikelyRecipientName(name)) {
-          continue;
-        }
-
-        recipients.push({ accountId, name });
-        break;
+      if (!accountId || !isLikelyRecipientName(name)) {
+        continue;
       }
+
+      recipients.push({ accountId, name });
     }
 
     return recipients;
@@ -393,7 +422,10 @@
   }
 
   function collectMentionCandidates(messageRoot) {
-    const candidates = collectRecipientsFromToBadges(messageRoot);
+    const candidates = collectRecipientsFromChatworkTags(messageRoot);
+    if (candidates.length === 0) {
+      candidates.push(...collectRecipientsFromToBadges(messageRoot));
+    }
     const bodyText = normalizeText(messageRoot.textContent);
     const toTagPattern = /\[To:(\d+)\]([^\[\]\n]+)/g;
     let match = null;
