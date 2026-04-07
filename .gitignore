@@ -1,0 +1,48 @@
+# --- OS ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# --- Editor / IDE ---
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Secrets（公開リポジトリでは絶対コミットしない）---
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+secrets.json
+credentials.json
+
+# --- Node（将来ビルドを入れたとき用）---
+# lock ファイルは再現性のためコミット推奨（ここでは無視しない）
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- ビルド成果物 ---
+dist/
+build/
+out/
+*.crx
+*.pem
+
+# --- パッケージ用ZIP（ストア提出用など）---
+*.zip
+
+# --- ログ・一時 ---
+*.log
+.cache/
+.temp/
+tmp/
