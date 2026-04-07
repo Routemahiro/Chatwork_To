@@ -4,16 +4,24 @@
   const BUTTON_TEXT = "全員に返信";
   const BUTTON_CLASS = "cwto-reply-all-button";
   const PROCESSING_CLASS = "is-processing";
-  const BUTTON_SCAN_INTERVAL_MS = 800;
   const REPLY_SETTLE_TIMEOUT_MS = 2500;
   const REPLY_SETTLE_POLL_MS = 100;
   const STORAGE_KEY_SELF_ACCOUNT_ID = "selfAccountId";
+  const MESSAGE_ROOT_SELECTOR = [
+    "[data-mid]",
+    "[data-message-id]",
+    "[role='listitem']",
+    ".message",
+    ".chatMessage",
+    "article"
+  ].join(",");
 
   let observerStarted = false;
-  let periodicScanId = null;
   let cachedSettings = {
     selfAccountId: ""
   };
+  let pendingScanRoots = new Set();
+  let scanScheduled = false;
 
   function normalizeText(value) {
     return (value || "").replace(/\s+/g, " ").trim();
@@ -63,6 +71,10 @@
         ".sc-1j80sy4-0"
       ].join(",")
     );
+  }
+
+  function isMessageRoot(element) {
+    return element instanceof Element && element.matches(MESSAGE_ROOT_SELECTOR);
   }
 
   function findActionContainer(messageRoot) {
@@ -611,32 +623,72 @@
     return button;
   }
 
-  function injectReplyAllButtons() {
-    const possibleMessages = document.querySelectorAll(
-      [
-        "[data-mid]",
-        "[data-message-id]",
-        "[role='listitem']",
-        ".message",
-        ".chatMessage",
-        "article"
-      ].join(",")
-    );
-
-    for (const messageRoot of possibleMessages) {
-      const actionContainer = findActionContainer(messageRoot);
-      const replyButton = findReplyButton(messageRoot);
-      if (!actionContainer || !replyButton) {
-        continue;
-      }
-
-      if (actionContainer.querySelector(`.${BUTTON_CLASS}`)) {
-        continue;
-      }
-
-      const replyAllButton = createReplyAllButton();
-      replyButton.insertAdjacentElement("beforebegin", replyAllButton);
+  function injectReplyAllButton(messageRoot) {
+    if (!(messageRoot instanceof Element)) {
+      return;
     }
+
+    const actionContainer = findActionContainer(messageRoot);
+    const replyButton = findReplyButton(messageRoot);
+    if (!actionContainer || !replyButton) {
+      return;
+    }
+
+    if (actionContainer.querySelector(`.${BUTTON_CLASS}`)) {
+      return;
+    }
+
+    const replyAllButton = createReplyAllButton();
+    replyButton.insertAdjacentElement("beforebegin", replyAllButton);
+  }
+
+  function flushPendingScans() {
+    scanScheduled = false;
+    const roots = Array.from(pendingScanRoots);
+    pendingScanRoots = new Set();
+
+    for (const root of roots) {
+      injectReplyAllButton(root);
+    }
+  }
+
+  function scheduleScan(root) {
+    if (!(root instanceof Element)) {
+      return;
+    }
+
+    pendingScanRoots.add(root);
+    if (scanScheduled) {
+      return;
+    }
+
+    scanScheduled = true;
+    window.requestAnimationFrame(flushPendingScans);
+  }
+
+  function scheduleInitialScan() {
+    document.querySelectorAll(MESSAGE_ROOT_SELECTOR).forEach((messageRoot) => {
+      scheduleScan(messageRoot);
+    });
+  }
+
+  function scheduleScanForNode(node) {
+    if (!(node instanceof Element)) {
+      return;
+    }
+
+    if (isMessageRoot(node)) {
+      scheduleScan(node);
+    }
+
+    const ownMessageRoot = findMessageRoot(node);
+    if (ownMessageRoot) {
+      scheduleScan(ownMessageRoot);
+    }
+
+    node.querySelectorAll(MESSAGE_ROOT_SELECTOR).forEach((messageRoot) => {
+      scheduleScan(messageRoot);
+    });
   }
 
   function startObservers() {
@@ -646,10 +698,14 @@
 
     observerStarted = true;
     loadSettings();
-    injectReplyAllButtons();
+    scheduleInitialScan();
 
-    const observer = new MutationObserver(() => {
-      injectReplyAllButtons();
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        mutation.addedNodes.forEach((node) => {
+          scheduleScanForNode(node);
+        });
+      }
     });
 
     observer.observe(document.body, {
@@ -657,7 +713,6 @@
       subtree: true
     });
 
-    periodicScanId = window.setInterval(injectReplyAllButtons, BUTTON_SCAN_INTERVAL_MS);
     if (chrome.storage && chrome.storage.onChanged) {
       chrome.storage.onChanged.addListener((changes, areaName) => {
         if (areaName !== "sync" || !changes[STORAGE_KEY_SELF_ACCOUNT_ID]) {
@@ -671,9 +726,6 @@
     }
 
     window.addEventListener("beforeunload", () => {
-      if (periodicScanId !== null) {
-        window.clearInterval(periodicScanId);
-      }
       observer.disconnect();
     });
   }
