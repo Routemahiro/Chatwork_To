@@ -3,6 +3,12 @@
   "name": "Chatwork 全員に返信",
   "version": "0.1.0",
   "description": "Chatwork の投稿アクションに「全員に返信」を追加し、返信タグと宛先をまとめて入力します。",
+  "icons": {
+    "16": "store_assets/icons/icon-16.png",
+    "32": "store_assets/icons/icon-32.png",
+    "48": "store_assets/icons/icon-48.png",
+    "128": "store_assets/icons/icon-128.png"
+  },
   "permissions": [
     "storage"
   ],
