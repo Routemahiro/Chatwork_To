@@ -13,4 +13,5 @@
 - 宛先名は最初の `さん` までに整形し、全員に返信ボタン色は返信ボタンの計算済み色に合わせるよう調整
 - Chrome Web Store 公開向けに掲載文面、privacyメモ、公開チェックリスト、アイコン、小プロモ画像、manifestのicons設定を追加
 - オプション画面の accountId 例示値と未設定時の初期値を `807150` に変更し、旧ID表記を除去
+- GitHub 公開URLとして使える `chrome-web-store/PRIVACY_POLICY.md` を追加
 - GitHub パブリック公開向けに `.gitignore`（OS・秘密情報・Node・ビルド成果物など）と `.gitattributes`（改行 LF 統一）を追加
