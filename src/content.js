@@ -314,13 +314,27 @@
     return true;
   }
 
+  function trimRecipientDisplayName(value) {
+    const text = normalizeText(value);
+    if (!text) {
+      return "";
+    }
+
+    const sanMatch = text.match(/^(.*?さん)/);
+    if (sanMatch) {
+      return sanMatch[1];
+    }
+
+    return text;
+  }
+
   function extractFirstMeaningfulLine(value) {
     const lines = String(value || "")
       .split(/\r?\n/)
       .map((line) => normalizeText(line))
       .filter(Boolean);
 
-    return lines[0] || "";
+    return trimRecipientDisplayName(lines[0] || "");
   }
 
   function readRecipientNameFromSiblings(tagElement) {
@@ -647,6 +661,8 @@
     }
 
     const replyAllButton = createReplyAllButton();
+    const replyButtonStyle = window.getComputedStyle(replyButton);
+    replyAllButton.style.color = replyButtonStyle.color;
     replyButton.insertAdjacentElement("beforebegin", replyAllButton);
   }
 
