@@ -72,6 +72,11 @@
   }
 
   function findActionContainer(messageRoot) {
+    const replyButton = findReplyButton(messageRoot);
+    if (replyButton && replyButton.parentElement) {
+      return replyButton.parentElement;
+    }
+
     const selectors = [
       "[role='toolbar']",
       ".messageAction",
@@ -96,13 +101,22 @@
       return false;
     }
 
+    if (element.classList.contains(BUTTON_CLASS)) {
+      return false;
+    }
+
     const label = normalizeText(
       element.getAttribute("aria-label") ||
         element.getAttribute("title") ||
         element.textContent
     );
 
-    return /返信/.test(label) && !/全員に返信/.test(label);
+    if (!label || label === BUTTON_TEXT) {
+      return false;
+    }
+
+    const normalizedLabel = label.replace(/\s+/g, "");
+    return normalizedLabel === "返信";
   }
 
   function findReplyButton(messageRoot) {
@@ -622,8 +636,8 @@
       return;
     }
 
-    const actionContainer = findActionContainer(messageRoot);
     const replyButton = findReplyButton(messageRoot);
+    const actionContainer = findActionContainer(messageRoot);
     if (!actionContainer || !replyButton) {
       return;
     }
