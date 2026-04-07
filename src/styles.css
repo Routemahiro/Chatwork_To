@@ -1,19 +1,33 @@
 .cwto-reply-all-button {
   border: 0;
   background: transparent;
-  color: inherit;
+  color: currentColor;
   font: inherit;
   cursor: pointer;
   padding: 0 6px;
-  opacity: 0.92;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .cwto-reply-all-button:hover {
-  opacity: 1;
   text-decoration: underline;
 }
 
 .cwto-reply-all-button.is-processing {
   opacity: 0.55;
   pointer-events: none;
+}
+
+.cwto-reply-all-icon {
+  flex: 0 0 auto;
+  display: block;
+  overflow: visible;
+}
+
+.cwto-reply-all-label {
+  display: inline-block;
 }

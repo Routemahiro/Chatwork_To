@@ -564,9 +564,49 @@
 
   function createReplyAllButton() {
     const button = document.createElement("button");
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const pathOne = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    const pathTwo = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    const label = document.createElement("span");
+
     button.type = "button";
     button.className = BUTTON_CLASS;
-    button.textContent = BUTTON_TEXT;
+    button.setAttribute("aria-label", BUTTON_TEXT);
+
+    icon.setAttribute("viewBox", "0 0 16 16");
+    icon.setAttribute("width", "14");
+    icon.setAttribute("height", "14");
+    icon.setAttribute("aria-hidden", "true");
+    icon.setAttribute("class", "cwto-reply-all-icon");
+
+    pathOne.setAttribute(
+      "d",
+      "M6.2 4.2 2.5 8l3.7 3.8"
+    );
+    pathOne.setAttribute("fill", "none");
+    pathOne.setAttribute("stroke", "currentColor");
+    pathOne.setAttribute("stroke-linecap", "round");
+    pathOne.setAttribute("stroke-linejoin", "round");
+    pathOne.setAttribute("stroke-width", "1.6");
+
+    pathTwo.setAttribute(
+      "d",
+      "M3 8h5.4c2.6 0 4.6 1.3 5.6 3.5M8.8 4.5c2.1.1 3.8 1.2 4.9 3"
+    );
+    pathTwo.setAttribute("fill", "none");
+    pathTwo.setAttribute("stroke", "currentColor");
+    pathTwo.setAttribute("stroke-linecap", "round");
+    pathTwo.setAttribute("stroke-linejoin", "round");
+    pathTwo.setAttribute("stroke-width", "1.6");
+
+    icon.appendChild(pathOne);
+    icon.appendChild(pathTwo);
+
+    label.className = "cwto-reply-all-label";
+    label.textContent = BUTTON_TEXT;
+
+    button.appendChild(icon);
+    button.appendChild(label);
     button.addEventListener("click", handleReplyAllClick);
     return button;
   }
