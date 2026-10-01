@@ -1,7 +1,7 @@
 # Chatwork Assist Privacy Policy
 
 - 制定日: 2026-08-30
-- 更新日: 2026-09-29（ワンクリックリアクションの追加）
+- 更新日: 2026-10-01（リアクション画像の初回表示方式を追記）
 - 対象: Chrome 拡張機能 `Chatwork Assist`
 
 ## 1. 適用範囲と公式性
@@ -43,7 +43,7 @@ CSV のインポートは、利用者がファイル選択した後に `FileRead
 
 ## 4. Chatwork との通信
 
-ワンクリックリアクションは、利用者が押したメッセージの標準リアクション操作をクリックして付与・取り消しを行います。アイコン表示にはChatwork画面上の標準画像URLを参照し、`https://assets.chatwork.com/images/emoticon2x/` 内の対象6種類の画像だけを利用します。画像そのものを拡張へ同梱せず、参照先へメッセージ本文・メモ・ルーム情報を付加しません。追加する画像要素は `referrerPolicy: no-referrer` とし、ページURLをRefererとして送信しません。画像未取得の場合は日本語名で表示します。外部JavaScriptを読み込む機能ではありません。
+ワンクリックリアクションは、利用者が押したメッセージの標準リアクション操作をクリックして付与・取り消しを行います。アイコン表示にはChatwork画面上の標準画像URL、または初回表示用の同じ標準画像の固定URLを参照し、`https://assets.chatwork.com/images/emoticon2x/` 内の対象6種類の画像だけを利用します。画像そのものを拡張へ同梱せず、参照先へメッセージ本文・メモ・ルーム情報を付加しません。追加する画像要素は `referrerPolicy: no-referrer` とし、ページURLをRefererとして送信しません。画像の読み込みに失敗した場合は日本語名で表示します。外部JavaScriptを読み込む機能ではありません。
 
 一括既読機能を利用者が実行したとき、ページ内の `RL.rooms` と `room.load` から未読ルームと最新チャット ID を確認し、ログイン中の `ACCESS_TOKEN` を使って `https://www.chatwork.com/gateway.php?cmd=read`（ページと同一 origin）へ `credentials: same-origin` のリクエストを行います。これは Chatwork のログインセッションを使う内部処理であり、公式公開 API トークンを利用者に入力させるものではありません。Chatwork 側の仕様変更により、この機能が利用できなくなる場合があります。
 
